@@ -4,10 +4,10 @@
 - block:
 
     - name: "Check if ca.key certificate exsists"
-      stat: path="{{ ca_defult_ssl_key_dir }}/{{ ca_key }}"
+      stat: path="{{ ca_default_ssl_key_dir }}/{{ ca_key }}"
       register: __key_file
 
-    - name: "verify {{ ca_defult_ssl_key_dir }}/{{ ca_key }} status"
+    - name: "verify {{ ca_default_ssl_key_dir }}/{{ ca_key }} status"
       debug: msg="{{ ca_defult_ssl_key_dir }}/{{ ca_key }} is present
                   - setting fact _ca_key_exists [ internal fact with _ prefix ] to true - this role will not generate a new one"
       when: __key_file.stat.exists
@@ -38,7 +38,11 @@
       register: cert_file
 
     - name: "Check certificate expiration date [ Expecting more than a week before setting regeneration var ... ]"
-      shell: "openssl x509 -checkend {{ ca_cert_expiration_panic_threshold }} -noout -in {{ ca_certs_dir }}/{{ ca_cert }}"
+      openssl_certificate:
+        path: "{{ ca_certs_dir }}/{{ ca_cert }}"
+        provider: assertonly
+        valid_in: "{{ ca_cert_expiration_panic_threshold }}"
+        # has_expired: no
       when: cert_file and cert_file.stat.exists
       register: cert_validity
 
