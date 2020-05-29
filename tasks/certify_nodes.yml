@@ -3,35 +3,85 @@
 - name: "make sure the {{ ca_certs_dir }} is present"
   file:
     state: directory
-    path: "{{ ca_certs_dir }}"
+    path: "{{ certs_dir }}"
     owner: root
     group: root
     mode: 0755
 
-- name: "Generate Certs for Infra server || CA server"
-  shell: 'openssl genrsa -out {{ item }}-priv-key.pem 2048'
-  args:
-    chdir: "{{ ca_certs_dir }}"
-  with_inventory_hostnames: all:!localhost
+- name: "make sure all certs dir is present"
+  file:
+    state: directory
+    path: "{{ certs_dir }}/{{ cert }}"
+    owner: root
+    group: root
+    mode: 0755
+  loop: "{{ certs }}"
+  loop_control:
+    loop_var: cert
 
-- name: "Create certificate request for Infra server || CA server"
-  shell: 'openssl req -subj "/CN={{ item }}.{{ ca_domain }}" -new -key "{{ item }}"-priv-key.pem -out "{{ item }}".csr'
-  args:
-    chdir: "{{ ca_certs_dir }}"
-  with_inventory_hostnames: all:!localhost
-  
-- name: "Generate the CA trusted certificate (Debian)"
-  shell: 'sudo openssl x509 -req -days 1825 -in "{{ item }}".csr -CA ca.pem -CAkey ca-priv-key.pem -CAcreateserial -out "{{ item }}"-cert.pem -extensions v3_req -extfile /usr/lib/ssl/openssl.cnf'
-  args:
-    chdir: "{{ ca_certs_dir }}"
-  with_inventory_hostnames: all:!localhost
-  when: ansible_os_family == "Debian"
-  
-- name: "Generate the CA trusted certificate (RedHat)"
-  shell: 'sudo openssl x509 -req -days 1825 -in "{{ item }}".csr -CA ca.pem -CAkey ca-priv-key.pem -CAcreateserial -out "{{ item }}"-cert.pem -extensions v3_req -extfile /etc/pki/tls/openssl.cnf'
-  args:
-    chdir: "{{ ca_certs_dir }}"
-  with_inventory_hostnames: all:!localhost
-  when: ansible_os_family == "RedHat"
+- name: "Generate Certs"
+  openssl_privatekey:
+    path: "{{ certs_dir}}/{{ certs }}/privkey.pem"
+    curve: {{ cert.curve | default(certs_curve) }}
+    type: ECC
+    group: certs
+    mode: u=rw,g=r,o=
+    passphrase: {{ cert.pass | default(certs_pass) }}
+  loop: "{{ certs }}"
+  loop_control:
+    loop_var: cert
 
+- name: "Create certificate request"
+  openssl_csr:
+    path: "{{ certs_dir }}/{{ cert }}/priv.csr"
+    privatekey_path: "{{ certs_dir }}/{{ cert }}/privkey.pem"
+    privatekey_passphrase: {{ cert.pass | default(certs_pass) }}
+    common_name: "{{ cert.CN }}"
+    country_name: "{{ cert.C | default(certs_C) }}"
+    email_address: "{{ cert.EMAIL | default(certs_EMAIL) }}"
+    locality_name: "{{ cert.L | default(certs_LOC) }}"
+    organization_name: "{{ cert.O | default(certs_ORG) }}"
+    organizational_unit_name: "{{ cert.OU | default(certs_OU) }}"
+    subject_alt_name: "{{ cert.SAN | default(certs_SAN) }}"
+    basic_constraints:
+      - {{ "CA:true" if cert.CA else "CA:false" }}
+      - {{ "pathlen:{{ cert.subCAlen }}" if cert.subCAlen is defined else "" }}
+    basic_constraints_critical: true
+    key_usage: {{ "keyCertSign,cRLSign,digitalSignature" if cert.CA else {{ cert.KU | default(certs_KU) }} }}
+    key_usage_critical: true
+    extended_key_usage: {{ "" if cert.CA else  {{ cert.EKU | default(certs_EKU) }} }}
+    extended_key_usage_critical: true
+    ocsp_must_staple: {{ cert.oscp_staple | default("false") }}
+    ocsp_must_staple_critical: false
+  loop: "{{ certs }}"
+  loop_control:
+    loop_var: cert
 
+- name: Generate signed certificate.
+  openssl_certificate:
+    path: "{{ certs_dir }}/{{ cert }}/fullchain.pem"
+    privatekey_path: "{{ certs_dir }}/{{ cert }}/privkey.pem"
+    privatekey_passphrase: {{ cert.pass | default(certs_pass) }}
+    csr_path: "{{ certs_dir }}/{{ cert }}/priv.csr"
+    provider: ownca
+    ownca_path: "{{ certs_dir }}/{{ cert.CAN | default(certs_CA) }}/fullchain.pem"
+    ownca_privatekey_passphrase: {{ cert.CAN_pass | default(certs_CA_pass) }}
+    ownca_privatekey_path: "{{ certs_dir }}/{{ cert.CAN | default(certs_CA) }}/privkey.pem"
+    ownca_not_after: {{ cert.notafter | default("+3650d") }}
+  when: {{ cert.casigned }}
+  loop: "{{ certs }}"
+  loop_control:
+    loop_var: cert
+
+- name: Generate self-signed certificate.
+  openssl_certificate:
+    path: "{{ certs_dir }}/{{ cert }}/fullchain.pem"
+    privatekey_path: "{{ certs_dir }}/{{ cert }}/privkey.pem"
+    privatekey_passphrase: {{ cert.pass | default(certs_pass) }}
+    csr_path: "{{ certs_dir }}/{{ cert }}/priv.csr"
+    selfsigned_not_after: {{ cert.notafter | default("+3650d") }}
+    provider: selfsigned
+  when: {{ cert.selfsigned }}
+  loop: "{{ certs }}"
+  loop_control:
+    loop_var: cert
