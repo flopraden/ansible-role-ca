@@ -16,14 +16,14 @@
   with_items:
   - "{{ ca_certs_dir }}"
 
-- name: "Deploy configuration items"
-  template:
-    src: "{{ item }}.j2"
-    dest: "{{ ca_certs_dir }}/{{ item }}"
-    owner: root
-    group: root
-  with_items:
-    - serial
-    - ca.conf
+# - name: "Deploy configuration items"
+#   template:
+#     src: "{{ item }}.j2"
+#     dest: "{{ ca_certs_dir }}/{{ item }}"
+#     owner: root
+#     group: root
+#   with_items:
+#     - serial
+#     - ca.conf
 
 
