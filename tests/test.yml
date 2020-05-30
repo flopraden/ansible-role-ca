@@ -1,5 +1,67 @@
 ---
 - hosts: localhost
   remote_user: root
+  vars:
+    certs:
+      CA1:
+        ECC:
+          curve: "secp521r1"
+        CN: "CA1"
+        CA:
+        notafter: "+3658d"
+        selfsigned: true
+        subcerts:
+          sCA1:
+            pass: "change"
+            ECC:
+              curve: "secp384r1"
+            CN: "sCA1"
+            CA:
+              pathlen: 1
+            notafter: "+3657d"
+            casigned: true
+            revocations:
+              - 205952626554026143931505593238213572441579005299
+              - 266209974674417368404489400859712072810830676493
+            subcerts:
+              tsCA1:
+                pass: "change"
+                RSA:
+                  bits: 4096
+                CN: "tsCA1"
+                SAN: "DNS:tsCA1"
+                KU:
+                  - digitalSignature
+                EKU:
+                  - serverAuth
+                  - clientAuth
+                notafter: "+90d"
+                casigned: true
+                revocations:
+                  - 327031167236535843797613286751648071556054023269
+                  - 72227252138331681092183429714892408272544947486
+          tCA1:
+            pass: "change"
+            RSA:
+              bits: 2048
+            CN: "tCA1"
+            SAN: "IP:127.0.0.1"
+            KU: "digitalSignature"
+            EKU: "serverAuth,clientAuth"
+            notafter: "+365d"
+            casigned: true
+      C1:
+        ECC:
+          curve: "secp521r1"
+        CN: "C1"
+        SAN: "DNS:C1,IP:127.0.0.2"
+        not_after: "+30d"
+        selfsigned: true
+      C2:
+        ECC:
+          curve: "secp521r1"
+        CN: "C2"
+        notafter: "+60d"
+        selfsigned: true
   roles:
     - ansible-role-ca
