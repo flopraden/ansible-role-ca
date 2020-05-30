@@ -1,0 +1,23 @@
+---
+- name: Generate ECC privkey
+  openssl_privatekey:
+    path: "{{ certs_dir}}/{{ cert.key }}/privkey.pem"
+    curve: "{{ cert.value.ECC.curve | default(certs_ECC_curve) }}"
+    type: ECC
+    group: certs
+    mode: u=rw,g=r,o=
+    passphrase: "{{ cert.value.pass | default(certs_pass) }}"
+    cipher: "auto"
+  when: cert.value.ECC is defined
+
+- name: Generate RSA privkey
+  openssl_privatekey:
+    path: "{{ certs_dir}}/{{ cert.key }}/privkey.pem"
+    size: "{{ cert.value.RSA.bits | default(certs_RSA_bits) }}"
+    type: RSA
+    group: certs
+    mode: u=rw,g=r,o=
+    passphrase: "{{ cert.value.pass | default(certs_pass) }}"
+    cipher: "auto"
+  when: cert.value.RSA is defined
+
