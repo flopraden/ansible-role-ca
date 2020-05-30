@@ -6,8 +6,8 @@
 #ca_force_create:
 ca_force_certify_nodes: false
 # see "{{ ansible_os_family }}.yml"
-ca_defult_ssl_certs_dir: "{{ pki_cert_dir | d('/etc/ssl/certs') }}"
-ca_defult_ssl_key_dir: "{{ pki_key_dir | d('/etc/ssl/private') }}"
+ca_default_ssl_certs_dir: "{{ pki_cert_dir | d('/etc/ssl/certs') }}"
+ca_default_ssl_key_dir: "{{ pki_key_dir | d('/etc/ssl/private') }}"
 
 # how long should remain before we generate a new CA cert ?
 ca_cert_expiration_panic_threshold: 604800 # 1 week
@@ -22,7 +22,6 @@ ca_rootca_password: Chang3m3
 ca_cert: ca.pem
 ca_key: ca-priv-key.pem
 
-ca_country: FR
 ca_state: Ile-de-France
 ca_locality: Paris
 ca_organization: "{{ domain_prefix | default('domain.local') }}"
@@ -30,3 +29,20 @@ ca_domain: "{{ domain_name | default('domain.local') }}"
 ca_organizationalunit: PKI
 ca_commonname: "{{ domain_prefix | default('domain.local') }}"
 ca_email: "ca-admin@pki.{{ domain_name | default('domain.local') }}"
+
+domain_name: "domain.local"
+
+certs_dir: /tmp/CERTS
+certs_pass: Chang3m3
+certs_C: FR
+certs_S: Ile-de-France
+certs_L: Paris
+certs_O: "{{ domain_name | default('domain.local') }}"
+certs_OU: PKI
+certs_EMAIL: "ca-admin@pki.{{ domain_name | default('domain.local') }}"
+certs_KU:
+  - digitalSignature
+certs_EKU:
+  - serverAuth
+  - clientAuth
+certs_NOTAFTER: "+3650d"
