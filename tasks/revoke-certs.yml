@@ -1,11 +1,17 @@
 ---
-- name: "Check new revocation certificate to do"
-  shell: "grep -iq ' {{ item }} ' '{{ certs_dir }}/{{ CA_name }}/index.txt'"
+- debug:
+    var: ca_dir
+- name: "Check new revocation certificate to do for {{ cert.key }}."
+  shell: "grep -iq '{{ '%X' % (item) }}' '{{ ca_dir }}/index.txt'"
   register: res_revoke
-  with_items: "{{ cert.value.revocations }}"
+  ignore_errors: true
+  with_items:
+    - "{{ cert.value.revocations }}"
+  changed_when: false
 
-- name: "Revoke certificate"
+- name: "Revoke certificate for {{ cert.key }}."
   shell: 
-    cmd: "openssl ca -config '{{ certs_dir }}/{{ CA_name }}/ca.conf' -revoke '{{ certs_dir }}/{{ cert.key}}/fullchain.pem-{{ item.item }}'
+    cmd: "openssl ca -config '{{ ca_dir }}/ca.conf' -revoke '{{ certs_dir }}/{{ cert.key}}/fullchain.pem-{{ item.item }}' -key '{{ certs_pass }}'"
   when: item.rc != 0
-  with_items: "{{res_revoke.results}}"
+  with_items:
+    - "{{ res_revoke.results }}"

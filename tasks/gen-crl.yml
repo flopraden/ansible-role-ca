@@ -9,11 +9,29 @@
         checksum_algorithm: "sha512"
         path: "{{ certs_dir }}/{{ item }}/index.txt"
         get_attributes: no
+      register: indexfile
+
+    - name: "Check CRL"
+      stat:
+        checksum_algorithm: "sha512"
+        path: "{{ certs_dir }}/{{ item }}/current.crl"
+        get_attributes: no
+      register: crlfile
+    
+    - name: "CRL should be newer"
+      assert:
+        that:
+          - not crlfile.failed
+          - not indexfile.failed
+          - indexfile.stat.mtime < crlfile.stat.mtime
+        fail_msg: "index file  for {{ item }} is newer that CRL file: {{ indexfile.stat.mtime }} / {{ crlfile.stat.mtime }}"
+        success_msg: "CRL is newer than index file for {{ item }}."
   
     - name: "Check CRL expiration date"
       shell:
         cmd: "date --date=\"$(openssl crl -nextupdate -noout -in '{{ certs_dir }}/{{ item }}/current.crl' -CAfile '{{ certs_dir }}/{{ item }}/fullchain.pem'|grep 'nextUpdate='|sed -e 's/nextUpdate=//g')\" -Is --utc|sed -e 's/\\+00:00/+0000/g'"
       register: nextupdate
+      changed_when: false
 
     - name: "Validate that CRL is OK"
       assert:

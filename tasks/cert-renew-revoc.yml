@@ -21,7 +21,7 @@
     - name: "Check certificate revocation."
       assert:
         that:
-          - cert.value.serial_number not in cert.value.revocations
+          - result.serial_number not in cert.value.revocations
         fail_msg: "Certificate {{ cert.key }} is REVOKED!!"
         success_msg: "Certificate {{ cert.key }} is not revocked."
       when: cert.value.revocations is defined

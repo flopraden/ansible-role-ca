@@ -1,6 +1,7 @@
 ---
 - set_fact:
     certs: "{{ subcerts |default(certs) }}"
+    ca_dir: "{{ certs_dir }}/{{ CA_name|default('NONE') }}"
     ca_crt: "{{ certs_dir }}/{{ CA_name|default('NONE') }}/fullchain.pem"
     ca_key: "{{ certs_dir }}/{{ CA_name|default('NONE') }}/privkey.pem"
     certpass: "{{ certs_pass }}"
@@ -13,37 +14,8 @@
   loop_control:
     loop_var: cert
 
-- name: "Make sure all certs dir is present."
-  file:
-    state: directory
-    path: "{{ certs_dir }}/{{ cert.key }}"
-    owner: root
-    group: root
-    mode: 0755
-  loop: "{{ lookup('dict', certs, wantlist=True) }}"
-  loop_control:
-    loop_var: cert
-
-- name: "Install conf for CA/subCA for revocation purpose"
-  template:
-    src: "ca.conf.j2"
-    dest: "{{ certs_dir }}/{{ cert.key }}/ca.conf"
-    owner: root
-    group: root
-    mode: 0755
-  when: cert.value.CA is defined
-  loop: "{{ lookup('dict', certs, wantlist=True) }}"
-  loop_control:
-    loop_var: cert
-
-- name: "Install empty index for CA/subCA for revocation purpose"
-  file:
-    path: "{{ certs_dir }}/{{ cert.key }}/index.txt"
-    owner: root
-    group: root
-    mode: 0755
-    state: touch
-  when: cert.value.CA is defined
+- name: "Make config for CA/subCA."
+  include_tasks: ca-subca-conf.yml
   loop: "{{ lookup('dict', certs, wantlist=True) }}"
   loop_control:
     loop_var: cert
@@ -60,9 +32,12 @@
   loop_control:
     loop_var: cert
 
+- debug:
+    var: CA_name
+
 - name: "Revocation of certificates"
   include_tasks: revoke-certs.yml
-  when: cert.value.revocation is defined
+  when: cert.value.revocations is defined
   loop: "{{ lookup('dict', certs, wantlist=True) }}"
   loop_control:
     loop_var: cert
