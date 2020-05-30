@@ -1,0 +1,39 @@
+---
+# Check CRL regeneration.
+- block:
+    - debug:
+        msg: "Checking {{ item }} CRL"
+
+    - name: "Check new revocation"
+      stat:
+        checksum_algorithm: "sha512"
+        path: "{{ certs_dir }}/{{ item }}/index.txt"
+        get_attributes: no
+  
+    - name: "Check CRL expiration date"
+      shell:
+        cmd: "date --date=\"$(openssl crl -nextupdate -noout -in '{{ certs_dir }}/{{ item }}/current.crl' -CAfile '{{ certs_dir }}/{{ item }}/fullchain.pem'|grep 'nextUpdate='|sed -e 's/nextUpdate=//g')\" -Is --utc|sed -e 's/\\+00:00/+0000/g'"
+      register: nextupdate
+
+    - name: "Validate that CRL is OK"
+      assert:
+        that:
+          - nextupdate.rc == 0
+          - nextupdate.stderr == "verify OK"
+        fail_msg: "CRL for {{ item }} is not OK: {{ nextupdate.stderr }} / {{ nextupdate.rc }}"
+        success_msg: "CRL for {{ item }} valid."
+
+    - name: "Check CRL validity in time."
+      assert:
+        that:
+          - ((nextupdate.stdout|to_datetime('%Y-%m-%dT%H:%M:%S%z')) - ((ansible_date_time.date + 'T' + ansible_date_time.time + ansible_date_time.tz_offset)|to_datetime('%Y-%m-%dT%H:%M:%S%z'))).total_seconds() - certs_CRL_expiration_panic_threshold >= 0
+        fail_msg: "Certificate CRL {{ item }} is outdated!! CRL: {{ nextupdate.stdout }}, now: {{ ansible_date_time.epoch }}, threshold: {{ certs_CRL_expiration_panic_threshold}} ."
+        success_msg: "CRL for {{ item }} is not outdated."
+
+    - debug:
+        msg: "CRL {{ item }} is still valid no need to generate"
+      
+  rescue:
+    - name: "Generate CRL"
+      shell:
+        cmd: "openssl ca -config '{{ certs_dir }}/{{ item }}/ca.conf' -gencrl -out '{{ certs_dir }}/{{ item }}/current.crl' -key '{{ certs_pass }}'"

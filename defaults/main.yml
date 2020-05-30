@@ -47,3 +47,5 @@ certs_NOTAFTER: "+3650d"
 
 # how long should remain before we generate a new cert ?
 certs_expiration_panic_threshold: "+1w"
+# how long should remain before we generate a new CRL (in second) ?
+certs_CRL_expiration_panic_threshold: 3600

@@ -11,11 +11,27 @@
           point_panic: "{{ certs_expiration_panic_threshold }}"
       register: result
 
-    - name: "Validate that certificate is valid in panic threshold and force renew"
+    - name: "Validate that certificate is valid in panic threshold"
       assert:
         that:
           - result.valid_at.point_panic
+        fail_msg: "Certificate {{ cert.key }} panic threshold !!"
+        success_msg: "Certificate {{ cert.key }} still valid."
+
+    - name: "Check certificate revocation."
+      assert:
+        that:
+          - cert.value.serial_number not in cert.value.revocations
+        fail_msg: "Certificate {{ cert.key }} is REVOKED!!"
+        success_msg: "Certificate {{ cert.key }} is not revocked."
+      when: cert.value.revocations is defined
+
+    - name: "force renew certificate"
+      assert:
+        that:
           - cert.value.force_renew|default(false) == false
+        fail_msg: "Certificate {{ cert.key }} force renew!!"
+        success_msg: "Certificate {{ cert.key }} no force renew."
 
     - name: "Validate Parent CA"
       assert:

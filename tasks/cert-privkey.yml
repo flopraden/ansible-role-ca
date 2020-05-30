@@ -1,5 +1,5 @@
 ---
-- name: Generate ECC privkey
+- name: "Generate ECC privkey {{ cert.key}}."
   openssl_privatekey:
     path: "{{ certs_dir}}/{{ cert.key }}/privkey.pem"
     curve: "{{ cert.value.ECC.curve | default(certs_ECC_curve) }}"
@@ -10,7 +10,7 @@
     cipher: "auto"
   when: cert.value.ECC is defined
 
-- name: Generate RSA privkey
+- name: "Generate RSA privkey {{ cert.key}}."
   openssl_privatekey:
     path: "{{ certs_dir}}/{{ cert.key }}/privkey.pem"
     size: "{{ cert.value.RSA.bits | default(certs_RSA_bits) }}"

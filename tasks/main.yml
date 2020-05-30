@@ -4,7 +4,12 @@
 
 - include: pki-init.yml
 
-- include: gen_certs.yml
+- name: "Generate certificates."
+  include: gen-certs.yml
+
+- name: "Generate CRLs."
+  include_tasks: gen-crl.yml
+  with_items: "{{ cas_CRL|default([]) }}"
 
 #- include: distribute_keys.yml
 #  when: ca_distribute_keys is defined

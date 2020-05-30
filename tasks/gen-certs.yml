@@ -5,7 +5,15 @@
     ca_key: "{{ certs_dir }}/{{ CA_name|default('NONE') }}/privkey.pem"
     certpass: "{{ certs_pass }}"
 
-- name: "make sure all certs dir is present"
+- name: "Add CA/subCA to list."
+  set_fact:
+    cas_CRL: "{{ cas_CRL|default([]) }} + [ '{{ cert.key }}' ]"
+  when: cert.value.CA is defined
+  loop: "{{ lookup('dict', certs, wantlist=True) }}"
+  loop_control:
+    loop_var: cert
+
+- name: "Make sure all certs dir is present."
   file:
     state: directory
     path: "{{ certs_dir }}/{{ cert.key }}"
@@ -16,17 +24,49 @@
   loop_control:
     loop_var: cert
 
+- name: "Install conf for CA/subCA for revocation purpose"
+  template:
+    src: "ca.conf.j2"
+    dest: "{{ certs_dir }}/{{ cert.key }}/ca.conf"
+    owner: root
+    group: root
+    mode: 0755
+  when: cert.value.CA is defined
+  loop: "{{ lookup('dict', certs, wantlist=True) }}"
+  loop_control:
+    loop_var: cert
+
+- name: "Install empty index for CA/subCA for revocation purpose"
+  file:
+    path: "{{ certs_dir }}/{{ cert.key }}/index.txt"
+    owner: root
+    group: root
+    mode: 0755
+    state: touch
+  when: cert.value.CA is defined
+  loop: "{{ lookup('dict', certs, wantlist=True) }}"
+  loop_control:
+    loop_var: cert
+
 - name: "Get CA certs info"
   openssl_certificate_info:
     path: "{{ ca_crt }}"
   register: ca_info
   when: CA_name is defined
 
-- name: "remove certificate / csr /key if renew needed"
-  include_tasks: cert-renew.yml
+- name: "remove certificate / csr /key if renew/revoc needed"
+  include_tasks: cert-renew-revoc.yml
   loop: "{{ lookup('dict', certs, wantlist=True) }}"
   loop_control:
     loop_var: cert
+
+- name: "Revocation of certificates"
+  include_tasks: revoke-certs.yml
+  when: cert.value.revocation is defined
+  loop: "{{ lookup('dict', certs, wantlist=True) }}"
+  loop_control:
+    loop_var: cert
+  when: CA_name is defined and cert.value.revocations is defined
 
 - name: "Generate private key"
   include: cert-privkey.yml
@@ -76,6 +116,7 @@
   loop: "{{ lookup('dict', certs, wantlist=True) }}"
   loop_control:
     loop_var: cert
+  register: res_casigned
 
 - name: "Generate self-signed certificate"
   openssl_certificate:
@@ -89,9 +130,26 @@
   loop: "{{ lookup('dict', certs, wantlist=True) }}"
   loop_control:
     loop_var: cert
+  register: res_selfsigned
+
+- name: "Copy signed certificate with serial"
+  file:
+    src: "{{ item.filename }}"
+    dest: "{{ item.filename }}-{{ item.serial_number }}"
+    state: hard
+  when: item.changed == true
+  with_items: "{{res_casigned.results}}"
+
+- name: "Copy signed certificate with serial"
+  file:
+    src: "{{ item.filename }}"
+    dest: "{{ item.filename }}-{{ item.serial_number }}"
+    state: hard
+  when: item.changed == true
+  with_items: "{{res_selfsigned.results}}"
 
 - name: "Generate sub-certs"
-  include_tasks: gen_certs.yml
+  include_tasks: gen-certs.yml
   vars:
     subcerts: "{{ cert.value.subcerts }}"
     CA_name: "{{ cert.key }}"
@@ -99,4 +157,3 @@
   loop: "{{ lookup('dict', certs, wantlist=True) }}"
   loop_control:
     loop_var: cert
-
