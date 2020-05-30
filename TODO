@@ -1,2 +1,3 @@
 * preprocess all certs to create/verify to create a "sorted" list of certificates to create.
   + for now, certs var should be a tree of PKI
+* certificate revocation & CRL generation
