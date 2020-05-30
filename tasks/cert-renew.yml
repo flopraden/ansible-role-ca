@@ -1,0 +1,44 @@
+---
+# Check for CA cert existence (so we don't getnerate a new onw on every run)
+- block:
+    - debug:
+        msg: "Checking {{ cert.key }} certificate"
+
+    - name: "Check certificate expiration date [ Expecting more than a week before setting regeneration var ... ]"
+      openssl_certificate_info:
+        path: "{{ certs_dir }}/{{ cert.key }}/fullchain.pem"
+        valid_at:
+          point_panic: "{{ certs_expiration_panic_threshold }}"
+      register: result
+
+    - name: "Validate that certificate is valid in panic threshold and force renew"
+      assert:
+        that:
+          - result.valid_at.point_panic
+          - cert.value.force_renew|default(false) == false
+
+    - name: "Validate Parent CA"
+      assert:
+        that:
+          - result.authority_key_identifier == ca_info.subject_key_identifier
+      when: CA_name is defined
+
+    - debug:
+        msg: "{{ cert.key }} is still valid no need to generate"
+      
+  rescue:
+    - name: "Remove CSR and cert files: renew"
+      file:
+        path: "{{ certs_dir }}/{{ cert.key }}/{{ item }}"
+        state: absent
+      with_items:
+        - "priv.csr"
+        - "fullchain.pem"
+      ignore_errors: true
+
+- name: "Remove cert key files: renew key"
+  file:
+    path: "{{ certs_dir }}/{{ cert.key }}/privkey.pem"
+    state: absent
+  when: cert.value.force_renew_key|default(false)
+  ignore_errors: true
