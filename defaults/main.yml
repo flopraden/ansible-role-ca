@@ -9,8 +9,6 @@ ca_force_certify_nodes: false
 ca_default_ssl_certs_dir: "{{ pki_cert_dir | d('/etc/ssl/certs') }}"
 ca_default_ssl_key_dir: "{{ pki_key_dir | d('/etc/ssl/private') }}"
 
-# how long should remain before we generate a new CA cert ?
-ca_cert_expiration_panic_threshold: 604800 # 1 week
 
 # where to generate the certs
 ca_certs_dir: /usr/share/ca-certs
@@ -46,3 +44,6 @@ certs_EKU:
   - serverAuth
   - clientAuth
 certs_NOTAFTER: "+3650d"
+
+# how long should remain before we generate a new cert ?
+certs_expiration_panic_threshold: "+1w"

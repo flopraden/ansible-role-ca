@@ -16,6 +16,18 @@
   loop_control:
     loop_var: cert
 
+- name: "Get CA certs info"
+  openssl_certificate_info:
+    path: "{{ ca_crt }}"
+  register: ca_info
+  when: CA_name is defined
+
+- name: "remove certificate / csr /key if renew needed"
+  include_tasks: cert-renew.yml
+  loop: "{{ lookup('dict', certs, wantlist=True) }}"
+  loop_control:
+    loop_var: cert
+
 - name: "Generate private key"
   include: cert-privkey.yml
   loop: "{{ lookup('dict', certs, wantlist=True) }}"
@@ -49,7 +61,7 @@
   loop_control:
     loop_var: cert
 
-- name: Generate signed cert.value.
+- name: "Generate signed certificate"
   openssl_certificate:
     path: "{{ certs_dir }}/{{ cert.key }}/fullchain.pem"
     privatekey_path: "{{ certs_dir }}/{{ cert.key }}/privkey.pem"
@@ -65,7 +77,7 @@
   loop_control:
     loop_var: cert
 
-- name: Generate self-signed cert.value.
+- name: "Generate self-signed certificate"
   openssl_certificate:
     path: "{{ certs_dir }}/{{ cert.key }}/fullchain.pem"
     privatekey_path: "{{ certs_dir }}/{{ cert.key }}/privkey.pem"
@@ -78,7 +90,7 @@
   loop_control:
     loop_var: cert
 
-- name: Generate sub-certs
+- name: "Generate sub-certs"
   include_tasks: gen_certs.yml
   vars:
     subcerts: "{{ cert.value.subcerts }}"

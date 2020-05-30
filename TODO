@@ -1,2 +1,2 @@
 * preprocess all certs to create/verify to create a "sorted" list of certificates to create.
-* do not regenerate if still valid or if asked 
+  + for now, certs var should be a tree of PKI
