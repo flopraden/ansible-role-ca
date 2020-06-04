@@ -40,6 +40,7 @@ certs_OU: PKI
 certs_EMAIL: "ca-admin@pki.{{ domain_name | default('domain.local') }}"
 certs_KU:
   - digitalSignature
+  - keyEncipherment
 certs_EKU:
   - serverAuth
   - clientAuth
