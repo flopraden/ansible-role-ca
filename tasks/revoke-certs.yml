@@ -1,17 +1,4 @@
 ---
-- debug:
-    var: ca_dir
-- name: "Check new revocation certificate to do for {{ cert.key }}."
-  shell: "grep -iq '{{ '%X' % (item) }}' '{{ ca_dir }}/index.txt'"
-  register: res_revoke
-  ignore_errors: true
-  with_items:
-    - "{{ cert.value.revocations }}"
-  changed_when: false
-
-- name: "Revoke certificate for {{ cert.key }}."
-  shell: 
-    cmd: "openssl ca -config '{{ ca_dir }}/ca.conf' -revoke '{{ certs_dir }}/{{ cert.key}}/fullchain.pem-{{ item.item }}' -key '{{ certs_pass }}'"
-  when: item.rc != 0
-  with_items:
-    - "{{ res_revoke.results }}"
+- name: "Check new revocation certificate to do for {{ cert.name }}."
+  include_tasks: revoke-cert.yml
+  with_items: "{{ cert.revocations }}"

@@ -1,0 +1,31 @@
+---
+- name: "Save {{ cert.name }} context to stack"
+  set_fact:
+    stack: "{{ stack|default([]) + [ { 'ca': ca|default(omit) , 'cert': cert }]  }}"
+
+# Recursion error
+# - name: "generate cert"
+#   include_role:
+#     name: ca
+#     public: false
+#   vars:
+#     pki:
+#       ca: "{{ cert }}"
+#       cert: "{{ subcert }}"
+
+- name: "generate subcert {{ subcert.name }}"
+  include_tasks:
+    file: main.yml
+    apply:
+      vars:
+        pki:
+          ca: "{{ cert }}"
+          cert: "{{ subcert }}"
+
+- name: "Get back context"
+  set_fact:
+    ca: "{{ stack[-1]['ca']|default(omit) }}"
+    cert: "{{ stack[-1]['cert'] }}"
+    stack: "{{ stack[:-1] }}"
+
+ 

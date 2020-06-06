@@ -2,14 +2,21 @@
 # tasks file for ansible-role-ca
 - include_vars: "{{ ansible_os_family }}.yml"
 
+- name: "Set facts for role."
+  set_fact:
+    cert_dir: "{{ pki.cert.dir |default(pki.common.dir + '/' + pki.cert.name) }}"
+    cert: "{{ pki.cert }}"
+    ca: "{{ pki.ca|default(omit) }}"
+    certpass: "{{ pki.cert.pass|default(pki.common.pass) }}"
+
 - include: pki-init.yml
 
 - name: "Generate certificates."
-  include: gen-certs.yml
+  include: gen-cert.yml
 
-- name: "Generate CRLs."
+- name: "Generate CRLs if needed."
   include_tasks: gen-crl.yml
-  with_items: "{{ cas_CRL|default([]) }}"
+  when: cert.CA is defined
 
 #- include: distribute_keys.yml
 #  when: ca_distribute_keys is defined

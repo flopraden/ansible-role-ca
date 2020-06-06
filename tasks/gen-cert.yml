@@ -1,0 +1,96 @@
+---
+- name: "Set CA vars"
+  set_fact:
+    ca_dir: "{{ ca.dir|default(pki.common.dir + '/' + ca.name) }}"
+  when: ca is defined
+
+- name: "Make config for CA/subCA."
+  include_tasks: ca-subca-conf.yml
+  when: cert.CA is defined
+
+- name: "Get CA certs info"
+  openssl_certificate_info:
+    path: "{{ ca_dir }}/fullchain.pem"
+  register: ca_info
+  when: ca is defined
+
+- name: "remove certificate / csr /key if renew/revoc needed"
+  include_tasks: cert-renew-revoc.yml
+
+- name: "Revocation of certificates"
+  include_tasks: revoke-certs.yml
+  when: ca is defined and cert.revocations is defined
+
+- name: "Generate private key"
+  include: cert-privkey.yml
+
+- name: "Create certificate request"
+  openssl_csr:
+    path: "{{ cert_dir }}/priv.csr"
+    privatekey_path: "{{ cert_dir }}/privkey.pem"
+    privatekey_passphrase: "{{ certpass }}"
+    common_name: "{{ cert.CN |default(omit) if cert.subj is not defined else omit }}"
+    subject: "{{ cert.subj |default(omit)}}"
+    country_name: "{{ cert.C | default(pki.common.C)  if cert.subj is not defined else omit }}"
+    email_address: "{{ cert.EMAIL | default(pki.common.EMAIL)  if cert.subj is not defined else omit }}"
+    state_or_province_name: "{{ cert.S | default(pki.common.S)  if cert.subj is not defined else omit }}"
+    locality_name: "{{ cert.L | default(pki.common.L)  if cert.subj is not defined else omit }}"
+    organization_name: "{{ cert.O | default(pki.common.O)  if cert.subj is not defined else omit }}"
+    organizational_unit_name: "{{ cert.OU | default(pki.common.OU)  if cert.subj is not defined else omit }}"
+    subject_alt_name: "{{ cert.SAN|default(omit) }}"
+    basic_constraints: "{{ (cert.CA is defined)|ternary('CA:TRUE','CA:FALSE') + 
+                           ((cert.CA is undefined) or (cert.CA.pathlen is undefined))|ternary('',',pathlen:' + cert.CA.pathlen|default('0')|string)
+                        }}"
+    basic_constraints_critical: 'true'
+    key_usage: "{{ 'keyCertSign,cRLSign,digitalSignature' if cert.CA is defined else cert.KU | default(pki.common.KU) }}"
+    key_usage_critical: true
+    extended_key_usage: "{{ 'serverAuth,clientAuth' if cert.CA is defined else  cert.EKU | default(pki.common.EKU) }}"
+    extended_key_usage_critical: 'true'
+    ocsp_must_staple: "{{ cert.oscp_staple | default('false') }}"
+    ocsp_must_staple_critical: 'false'
+
+- name: "Generate signed certificate"
+  openssl_certificate:
+    path: "{{ cert_dir }}/fullchain.pem"
+    privatekey_path: "{{ cert_dir }}/privkey.pem"
+    privatekey_passphrase: "{{ certpass }}"
+    csr_path: "{{ cert_dir }}/priv.csr"
+    ownca_path: "{{ ca_dir }}/fullchain.pem"
+    ownca_privatekey_passphrase: "{{ ca.pass|default(pki.common.pass) }}"
+    ownca_privatekey_path: "{{ ca_dir }}/privkey.pem"
+    ownca_not_after: "{{ cert.notafter | default(pki.common.NOTAFTER) }}"
+    provider: ownca
+  when: cert.casigned is defined
+  register: res_casigned
+
+- name: "Generate self-signed certificate"
+  openssl_certificate:
+    path: "{{ cert_dir }}/fullchain.pem"
+    privatekey_path: "{{ cert_dir }}/privkey.pem"
+    privatekey_passphrase: "{{ certpass }}"
+    csr_path: "{{ cert_dir }}/priv.csr"
+    selfsigned_not_after: "{{ cert.notafter | default(pki.common.NOTAFTER) }}"
+    provider: selfsigned
+  when: cert.selfsigned is defined
+  register: res_selfsigned
+
+- name: "Copy signed certificate with serial"
+  file:
+    src: "{{ res_casigned.filename }}"
+    dest: "{{ res_casigned.filename }}-{{ res_casigned.serial_number }}"
+    state: hard
+  when: res_casigned.changed
+
+- name: "Copy signed certificate with serial"
+  file:
+    src: "{{ res_selfsigned.filename }}"
+    dest: "{{ res_selfsigned.filename }}-{{ res_selfsigned.serial_number }}"
+    state: hard
+  when: res_selfsigned.changed == true
+
+- name: "Generate sub-certs"
+  include_tasks: gen-subcerts.yml
+  loop: "{{ cert.subcerts }}"
+  loop_control:
+    loop_var: subcert
+  when: cert.subcerts is defined

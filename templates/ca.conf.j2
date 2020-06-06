@@ -2,7 +2,7 @@
   default_ca       = CA_default            # The default ca section
 
 [ CA_default ]
-  dir              = {{ certs_dir }}/{{ cert.key }}/
+  dir              = {{ cert_dir }}
   database         = $dir/index.txt        # index file.
   certificate      = $dir/fullchain.pem    # The CA cert
   private_key      = $dir/privkey.pem      # CA private key

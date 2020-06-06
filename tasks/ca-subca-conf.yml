@@ -1,35 +1,25 @@
 ---
-- name: "Make sure cert dir is present."
-  file:
-    state: directory
-    path: "{{ certs_dir }}/{{ cert.key }}"
-    owner: root
-    group: root
-    mode: 0755
-
 - name: "Check index for CA/subCA (revocation)"
   stat:
-    path: "{{ certs_dir }}/{{ cert.key }}/ca.conf"
+    path: "{{ cert_dir }}/index.txt"
   register: index_file
 
 - name: "Install conf for CA/subCA for revocation purpose"
   template:
     src: "ca.conf.j2"
-    dest: "{{ certs_dir }}/{{ cert.key }}/ca.conf"
+    dest: "{{ cert_dir }}/ca.conf"
     owner: root
     group: root
     mode: 0755
   when:
-    - cert.value.CA is defined
     - not index_file.stat.exists
 
 - name: "Install empty index for CA/subCA for revocation purpose"
   file:
-    path: "{{ certs_dir }}/{{ cert.key }}/index.txt"
+    path: "{{ cert_dir }}/index.txt"
     owner: root
     group: root
     mode: 0755
     state: touch
   when:
-    - cert.value.CA is defined
     - not index_file.stat.exists

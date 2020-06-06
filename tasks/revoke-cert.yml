@@ -1,0 +1,32 @@
+---
+- name: "Check new revocation certificate to do for {{ cert.name }}."
+  shell: "grep -iq '{{ '%X' % (item) }}' '{{ ca_dir }}/index.txt'"
+  register: res_revoke
+  ignore_errors: true
+  changed_when: false
+
+- name: "Check the file exists for revocation."
+  stat:
+    checksum_algorithm: "sha512"
+    path: "{{ cert_dir }}/fullchain.pem-{{ item }}"
+    get_attributes: no
+  register: certfile
+  when: res_revoke.rc != 0
+
+- name: "Check cert."
+  assert:
+    that:
+      - not certfile.failed
+      - certfile.stat.exists
+    fail_msg: "Cert file for {{ cert.name }} SN: {{ item }} does not exists : revocation not possible."
+    success_msg: "Cert file for {{ cert.name }} SN: {{ item }} present: revoke."
+    quiet: true
+  when: res_revoke.rc != 0
+
+- name: "Revoke certificate for {{ cert.name }}."
+  shell: 
+    cmd: "openssl ca -config '{{ ca_dir }}/ca.conf' -revoke '{{ cert_dir }}/fullchain.pem-{{ item }}' -key '{{ ca.pass|default(pki.common.pass) }}'"
+  when: res_revoke.rc != 0
+
+
+

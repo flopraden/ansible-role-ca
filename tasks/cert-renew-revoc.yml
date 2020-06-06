@@ -2,50 +2,50 @@
 # Check for CA cert existence (so we don't getnerate a new onw on every run)
 - block:
     - debug:
-        msg: "Checking {{ cert.key }} certificate"
+        msg: "Checking {{ cert.name}} certificate"
 
     - name: "Check certificate expiration date [ Expecting more than a week before setting regeneration var ... ]"
       openssl_certificate_info:
-        path: "{{ certs_dir }}/{{ cert.key }}/fullchain.pem"
+        path: "{{ cert_dir }}/fullchain.pem"
         valid_at:
-          point_panic: "{{ certs_expiration_panic_threshold }}"
+          point_panic: "{{ pki.common.expiration_threshold.cert }}"
       register: result
 
     - name: "Validate that certificate is valid in panic threshold"
       assert:
         that:
           - result.valid_at.point_panic
-        fail_msg: "Certificate {{ cert.key }} panic threshold !!"
-        success_msg: "Certificate {{ cert.key }} still valid."
+        fail_msg: "Certificate {{ cert.name }} panic threshold !!"
+        success_msg: "Certificate {{ cert.name }} still valid."
 
     - name: "Check certificate revocation."
       assert:
         that:
-          - result.serial_number not in cert.value.revocations
-        fail_msg: "Certificate {{ cert.key }} is REVOKED!!"
-        success_msg: "Certificate {{ cert.key }} is not revocked."
-      when: cert.value.revocations is defined
+          - result.serial_number not in cert.revocations
+        fail_msg: "Certificate {{ cert.name }} is REVOKED!!"
+        success_msg: "Certificate {{ cert.name }} is not revocked."
+      when: cert.revocations is defined
 
     - name: "force renew certificate"
       assert:
         that:
-          - cert.value.force_renew|default(false) == false
-        fail_msg: "Certificate {{ cert.key }} force renew!!"
-        success_msg: "Certificate {{ cert.key }} no force renew."
+          - cert.force_renew|default(false) == false
+        fail_msg: "Certificate {{ cert.name }} force renew!!"
+        success_msg: "Certificate {{ cert.name }} no force renew."
 
     - name: "Validate Parent CA"
       assert:
         that:
           - result.authority_key_identifier == ca_info.subject_key_identifier
-      when: CA_name is defined
+      when: pki.ca is defined
 
     - debug:
-        msg: "{{ cert.key }} is still valid no need to generate"
+        msg: "{{ cert.name }} is still valid no need to generate"
       
   rescue:
     - name: "Remove CSR and cert files: renew"
       file:
-        path: "{{ certs_dir }}/{{ cert.key }}/{{ item }}"
+        path: "{{ cert_dir }}/{{ item }}"
         state: absent
       with_items:
         - "priv.csr"
@@ -54,7 +54,7 @@
 
 - name: "Remove cert key files: renew key"
   file:
-    path: "{{ certs_dir }}/{{ cert.key }}/privkey.pem"
+    path: "{{ cert_dir }}/privkey.pem"
     state: absent
-  when: cert.value.force_renew_key|default(false)
+  when: cert.force_renew_key|default(false)
   ignore_errors: true
